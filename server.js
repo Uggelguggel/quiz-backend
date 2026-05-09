@@ -9,7 +9,6 @@ app.use(express.json());
 
 // 1) Datenbank öffnen/erstellen (Datei)
 const db = new sqlite3.Database("./leaderboard.db");
-db.pragma("journal_mode = WAL");
 
 // 2) Tabelle + Indizes anlegen (falls noch nicht da)
 db.exec(`
