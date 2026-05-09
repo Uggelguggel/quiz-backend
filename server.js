@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const Database = require("better-sqlite3");
+const sqlite3 = require("sqlite3").verbose();
 
 const app = express();
 
@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 
 // 1) Datenbank öffnen/erstellen (Datei)
-const db = new Database("./leaderboard.db");
+const db = new sqlite3.Database("./leaderboard.db");
 db.pragma("journal_mode = WAL");
 
 // 2) Tabelle + Indizes anlegen (falls noch nicht da)
