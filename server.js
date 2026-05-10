@@ -109,5 +109,30 @@ app.get("/api/rank/:name", (req, res) => {
   });
 });
 
+app.post("/api/admin/reset-db", (req, res) => {
+  const adminPassword = req.headers["x-admin-key"];
+  const SECRET = "GeneralNocreen"; // Ändere das zu etwas Sicherem!
+
+  if (adminPassword !== SECRET) {
+    return res.status(401).json({ error: "Nicht autorisiert" });
+  }
+
+  // Löscht alle Einträge aus der Tabelle 'runs'
+  db.run("DELETE FROM runs", [], function(err) {
+    if (err) {
+      return res.status(500).json({ error: "Fehler beim Löschen", details: err.message });
+    }
+    
+    // Setzt den Auto-Increment Counter zurück (optional, damit IDs wieder bei 1 starten)
+    db.run("DELETE FROM sqlite_sequence WHERE name='runs'");
+
+    res.json({ 
+      success: true, 
+      message: "Leaderboard wurde geleert.",
+      deletedRows: this.changes 
+    });
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server läuft auf Port", PORT));
