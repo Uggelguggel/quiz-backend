@@ -78,25 +78,35 @@ app.get("/api/leaderboard", (req, res) => {
 });
 
 app.get("/api/rank/:name", (req, res) => {
-  const name = String(req.params.name || "");
-  if (isGuest(name)) return res.status(400).json({ error: "Gast hat keine Platzierung." });
+  const name = String(req.params.name);
 
-  db.get(
-    `
-    SELECT score, time_cs, created_at
-    FROM runs
-    WHERE name = ?
-    ORDER BY score DESC, time_cs ASC, created_at ASC
-    LIMIT 1
-    `,
-    [name],
-    (err, row) => {
-      if (err) return res.status(500).json({ error: "DB Fehler", details: err.message });
-      if (!row) return res.status(404).json({ error: "Noch kein Ergebnis gespeichert." });
-      // (Rank-Berechnung wäre ein extra Query – erstmal nur bestes Ergebnis)
-      res.json(row);
+  db.all(`
+    SELECT name, score, time_cs
+    FROM (
+      SELECT name, score, time_cs,
+             ROW_NUMBER() OVER (
+               PARTITION BY name
+               ORDER BY score DESC, time_cs ASC, created_at ASC
+             ) rn
+      FROM runs
+      WHERE lower(name) <> 'gast'
+    )
+    WHERE rn = 1
+    ORDER BY score DESC, time_cs ASC
+  `, [], (err, rows) => {
+    if (err) return res.json({ error: "DB_ERROR" });
+
+    const idx = rows.findIndex(r => r.name === name);
+
+    if (idx === -1) {
+      return res.json({ error: "NO_RANK" });
     }
-  );
+
+    res.json({
+      rank: idx + 1,
+      totalPlayers: rows.length
+    });
+  });
 });
 
 const PORT = process.env.PORT || 3000;
