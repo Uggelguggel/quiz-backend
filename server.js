@@ -10,7 +10,7 @@ app.use(cors({
     "https://projekt-kernfusion-10e-mathe.netlify.app"
   ],
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  allowedHeaders: ["Content-Type", "x-admin-key"]
 }));
 app.use(express.json());
 
@@ -61,8 +61,17 @@ app.get("/api/leaderboard", (req, res) => {
   db.all(
     `
     SELECT name, score, time_cs, created_at
-    FROM runs
-    WHERE lower(name) <> 'gast'
+    FROM (
+      SELECT
+        name, score, time_cs, created_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY lower(trim(name))
+          ORDER BY score DESC, time_cs ASC, created_at ASC
+        ) AS rn
+      FROM runs
+      WHERE lower(trim(name)) <> 'gast'
+    )
+    WHERE rn = 1
     ORDER BY score DESC, time_cs ASC, created_at ASC
     LIMIT ?
     `,
@@ -70,9 +79,9 @@ app.get("/api/leaderboard", (req, res) => {
     (err, rows) => {
       if (err) {
         console.error(err);
-        return res.json([]);     // ✅ IMMER Array zurückgeben
+        return res.json([]);
       }
-      res.json(rows || []);     // ✅ rows ist ein Array
+      res.json(rows || []);
     }
   );
 });
@@ -111,7 +120,7 @@ app.get("/api/rank/:name", (req, res) => {
 
 app.post("/api/admin/reset-db", (req, res) => {
   const adminPassword = req.headers["x-admin-key"];
-  const SECRET = "GeneralNocreen"; // Ändere das zu etwas Sicherem!
+  const SECRET = "GeneralNocreen"; 
 
   if (adminPassword !== SECRET) {
     return res.status(401).json({ error: "Nicht autorisiert" });
@@ -136,3 +145,4 @@ app.post("/api/admin/reset-db", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server läuft auf Port", PORT));
+
