@@ -7,7 +7,7 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://projekt-kernfusion-10e-mathe.netlify.app"
+    "https://********.netlify.app"
   ],
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "x-admin-key"]
@@ -94,7 +94,7 @@ app.get("/api/rank/:name", (req, res) => {
     FROM (
       SELECT name, score, time_cs,
              ROW_NUMBER() OVER (
-               PARTITION BY name
+               PARTITION BY lower(trim(name))
                ORDER BY score DESC, time_cs ASC, created_at ASC
              ) rn
       FROM runs
@@ -117,6 +117,54 @@ app.get("/api/rank/:name", (req, res) => {
     });
   });
 });
+
+
+app.get("/api/global/states", (req, res) => {
+  const limitPlayers = Math.min(Number(req.query.limit) || 23, 50); // Anzahl Spieler
+  const topN = 3; // Top 3 pro Spieler
+
+  db.all(
+    `
+    SELECT name, score, time_cs, created_at
+    FROM (
+      SELECT
+        name, score, time_cs, created_at,
+        ROW_NUMBER() OVER (
+          PARTITION BY lower(trim(name))
+          ORDER BY score DESC, time_cs ASC, created_at ASC
+        ) AS rn
+      FROM runs
+      WHERE lower(trim(name)) <> 'gast'
+    )
+    WHERE rn <= ?
+    ORDER BY lower(trim(name)) ASC, rn ASC
+    `,
+    [topN],
+    (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.json([]);
+      }
+
+      // Gruppieren nach normalisiertem Namen
+      const map = new Map();
+
+      for (const r of rows || []) {
+        const key = String(r.name).trim().toLowerCase();
+        if (!map.has(key)) map.set(key, { name: r.name, runs: [] });
+
+        map.get(key).runs.push({
+          score: r.score,
+          time_cs: r.time_cs,
+          created_at: r.created_at,
+        });
+      }
+      const result = Array.from(map.values()).slice(0, limitPlayers);
+      res.json(result);
+    }
+  );
+});
+
 
 app.post("/api/admin/reset-db", (req, res) => {
   const adminPassword = req.headers["x-admin-key"];
@@ -145,4 +193,3 @@ app.post("/api/admin/reset-db", (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server läuft auf Port", PORT));
-
