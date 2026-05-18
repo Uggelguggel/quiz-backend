@@ -7,7 +7,7 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://********.netlify.app"
+    "https://projekt-kernfusion-10e-mathe.netlify.app"
   ],
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "x-admin-key"]
